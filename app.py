@@ -1,9 +1,6 @@
 from flask import Flask, render_template_string, request, jsonify, Response
-import os
-import requests as req_lib
-from urllib.parse import quote as url_quote, unquote as url_unquote
-import subprocess
-import json
+import os, requests as req_lib
+from urllib.parse import quote as uq, unquote as uuq
 
 app = Flask(__name__)
 
@@ -16,448 +13,205 @@ HTML = r'''<!DOCTYPE html>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --glass: rgba(255,255,255,0.06);
-  --glass-border: rgba(255,255,255,0.13);
-  --glass-hover: rgba(255,255,255,0.11);
-  --accent: #38bdf8;
-  --accent2: #818cf8;
-  --accent3: #f472b6;
-  --text: #f1f5f9;
-  --text-muted: #94a3b8;
-  --bg1: #020617;
-  --error: #f87171;
-  --blur: blur(20px);
+  --g: rgba(255,255,255,0.06);
+  --gb: rgba(255,255,255,0.13);
+  --gh: rgba(255,255,255,0.1);
+  --a: #38bdf8; --a2: #818cf8; --a3: #f472b6;
+  --t: #f1f5f9; --tm: #94a3b8;
+  --bg: #020617; --err: #f87171;
+  --blur: blur(18px);
 }
-* { margin:0; padding:0; box-sizing:border-box; }
-body {
-  font-family: 'Vazirmatn', sans-serif;
-  background: var(--bg1);
-  color: var(--text);
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-.bg-orbs { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
-.orb { position:absolute; border-radius:50%; filter:blur(90px); opacity:0.2; animation:float 14s ease-in-out infinite; }
-.orb1 { width:550px; height:550px; background:radial-gradient(circle,#6366f1,transparent); top:-120px; right:-120px; }
-.orb2 { width:450px; height:450px; background:radial-gradient(circle,#0ea5e9,transparent); bottom:-120px; left:-120px; animation-delay:-5s; }
-.orb3 { width:350px; height:350px; background:radial-gradient(circle,#ec4899,transparent); top:50%; left:50%; transform:translate(-50%,-50%); animation-delay:-10s; }
-@keyframes float {
-  0%,100% { transform:translate(0,0) scale(1); }
-  33% { transform:translate(25px,-25px) scale(1.04); }
-  66% { transform:translate(-18px,18px) scale(0.96); }
-}
-body::before {
-  content:''; position:fixed; inset:0; z-index:0;
-  background-image: linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),
-                    linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px);
-  background-size:60px 60px; pointer-events:none;
-}
-.page { position:relative; z-index:1; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:40px 20px; }
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t);min-height:100vh;overflow-x:hidden}
+.orbs{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:.18;animation:fl 14s ease-in-out infinite}
+.o1{width:550px;height:550px;background:radial-gradient(circle,#6366f1,transparent);top:-100px;right:-100px}
+.o2{width:450px;height:450px;background:radial-gradient(circle,#0ea5e9,transparent);bottom:-100px;left:-100px;animation-delay:-5s}
+.o3{width:300px;height:300px;background:radial-gradient(circle,#ec4899,transparent);top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:-10s}
+@keyframes fl{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(20px,-20px) scale(1.04)}66%{transform:translate(-15px,15px) scale(.97)}}
+body::before{content:'';position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);background-size:60px 60px;pointer-events:none}
+.page{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:36px 18px}
 
 /* هدر */
-header { text-align:center; margin-bottom:44px; animation:fadeDown 0.7s ease both; }
-.logo-pill {
-  display:inline-flex; align-items:center; gap:10px;
-  background:var(--glass); border:1px solid var(--glass-border);
-  backdrop-filter:var(--blur); border-radius:100px;
-  padding:10px 22px; margin-bottom:22px;
-}
-.logo-dot { width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); }
-.logo-name { font-size:0.82rem; font-weight:600; color:var(--text-muted); letter-spacing:0.12em; text-transform:uppercase; }
-h1 { font-size:clamp(1.9rem,5.5vw,3.2rem); font-weight:700; line-height:1.1; margin-bottom:10px;
-  background:linear-gradient(135deg,#fff 0%,var(--accent) 55%,var(--accent2) 100%);
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-.tagline { color:var(--text-muted); font-size:0.95rem; font-weight:300; }
+header{text-align:center;margin-bottom:40px;animation:fdown .7s ease both}
+.pill{display:inline-flex;align-items:center;gap:9px;background:var(--g);border:1px solid var(--gb);backdrop-filter:var(--blur);border-radius:100px;padding:9px 20px;margin-bottom:20px}
+.pdot{width:7px;height:7px;border-radius:50%;background:var(--a);box-shadow:0 0 8px var(--a)}
+.pname{font-size:.8rem;font-weight:600;color:var(--tm);letter-spacing:.12em;text-transform:uppercase}
+h1{font-size:clamp(1.8rem,5vw,3rem);font-weight:700;line-height:1.1;margin-bottom:10px;background:linear-gradient(135deg,#fff 0%,var(--a) 55%,var(--a2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sub{color:var(--tm);font-size:.9rem;font-weight:300}
 
-/* کارت اصلی */
-.main-card {
-  width:100%; max-width:680px;
-  background:var(--glass); border:1px solid var(--glass-border);
-  backdrop-filter:var(--blur); border-radius:24px; padding:30px;
-  margin-bottom:18px; animation:fadeUp 0.7s ease 0.15s both;
-  box-shadow:0 25px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
-}
+/* کارت */
+.card{width:100%;max-width:680px;background:var(--g);border:1px solid var(--gb);backdrop-filter:var(--blur);border-radius:22px;padding:28px;margin-bottom:16px;box-shadow:0 25px 60px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.07);animation:fup .7s ease .1s both}
 
 /* پلتفرم */
-.platforms { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:22px; }
-.plat-btn {
-  display:flex; align-items:center; gap:6px;
-  background:transparent; border:1px solid var(--glass-border);
-  border-radius:100px; padding:6px 14px;
-  color:var(--text-muted); font-family:'Vazirmatn',sans-serif;
-  font-size:0.8rem; cursor:pointer; transition:all 0.25s;
-}
-.plat-btn:hover, .plat-btn.active {
-  background:var(--glass-hover); border-color:var(--accent); color:var(--text);
-}
-.plat-dot { width:8px; height:8px; border-radius:50%; }
-.dot-tw { background:#1d9bf0; }
-.dot-ig { background:linear-gradient(135deg,#f09433,#dc2743,#bc1888); }
-.dot-tt { background:#ff0050; }
+.plats{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:20px}
+.pb{display:flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--gb);border-radius:100px;padding:6px 13px;color:var(--tm);font-family:'Vazirmatn',sans-serif;font-size:.78rem;cursor:pointer;transition:all .2s}
+.pb:hover,.pb.on{background:var(--gh);border-color:var(--a);color:var(--t)}
+.pd{width:7px;height:7px;border-radius:50%}
+.dtw{background:#1d9bf0}.dig{background:linear-gradient(135deg,#f09433,#dc2743,#bc1888)}.dtt{background:#ff0050}
 
 /* input */
-.url-input {
-  width:100%; background:rgba(0,0,0,0.35); border:1px solid var(--glass-border);
-  border-radius:14px; padding:15px 18px; color:var(--text);
-  font-family:'Vazirmatn',sans-serif; font-size:0.95rem; direction:ltr;
-  transition:all 0.2s; outline:none; margin-bottom:16px;
-}
-.url-input::placeholder { color:#3f4f65; }
-.url-input:focus { border-color:var(--accent); background:rgba(56,189,248,0.04); box-shadow:0 0 0 3px rgba(56,189,248,0.1); }
+.ui{width:100%;background:rgba(0,0,0,.35);border:1px solid var(--gb);border-radius:13px;padding:14px 17px;color:var(--t);font-family:'Vazirmatn',sans-serif;font-size:.9rem;direction:ltr;transition:all .2s;outline:none;margin-bottom:15px}
+.ui::placeholder{color:#3a4a60}
+.ui:focus{border-color:var(--a);background:rgba(56,189,248,.04);box-shadow:0 0 0 3px rgba(56,189,248,.1)}
 
-/* گزینه‌ها */
-.options-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px; }
-.opt-label { font-size:0.75rem; color:var(--text-muted); margin-bottom:7px; font-weight:500; }
-.seg { display:flex; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); border-radius:10px; padding:3px; gap:3px; }
-.seg-btn {
-  flex:1; padding:8px; border:none; background:transparent;
-  color:var(--text-muted); font-family:'Vazirmatn',sans-serif;
-  font-size:0.8rem; border-radius:7px; cursor:pointer; transition:all 0.2s;
-}
-.seg-btn.active { background:rgba(255,255,255,0.1); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,0.3); }
-.q-select {
-  width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--glass-border);
-  border-radius:10px; padding:9px 13px; color:var(--text);
-  font-family:'Vazirmatn',sans-serif; font-size:0.85rem; outline:none; cursor:pointer;
-}
-.q-select option { background:#0f172a; }
-
-/* دکمه اصلی — شیشه‌ای درخشان */
-.btn-main {
-  width:100%; position:relative; overflow:hidden;
-  background:linear-gradient(135deg,rgba(14,165,233,0.25),rgba(99,102,241,0.25));
-  border:1px solid rgba(56,189,248,0.4);
-  backdrop-filter:blur(10px);
-  border-radius:14px; padding:15px;
-  color:white; font-family:'Vazirmatn',sans-serif;
-  font-size:1rem; font-weight:600; cursor:pointer; transition:all 0.3s;
-}
-.btn-main::before {
-  content:''; position:absolute; top:-50%; left:-60%; width:40%; height:200%;
-  background:linear-gradient(105deg,transparent,rgba(255,255,255,0.25),transparent);
-  transform:skewX(-20deg); transition:left 0.6s ease;
-}
-.btn-main:hover::before { left:130%; }
-.btn-main:hover {
-  background:linear-gradient(135deg,rgba(14,165,233,0.4),rgba(99,102,241,0.4));
-  border-color:rgba(56,189,248,0.7);
-  box-shadow:0 0 25px rgba(56,189,248,0.3), inset 0 1px 0 rgba(255,255,255,0.15);
-  transform:translateY(-1px);
-}
-.btn-main:disabled { opacity:0.45; cursor:not-allowed; transform:none; }
+/* دکمه اصلی */
+.bmain{width:100%;position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(14,165,233,.22),rgba(99,102,241,.22));border:1px solid rgba(56,189,248,.38);backdrop-filter:blur(10px);border-radius:13px;padding:14px;color:#fff;font-family:'Vazirmatn',sans-serif;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .3s}
+.bmain::before{content:'';position:absolute;top:-50%;left:-60%;width:35%;height:200%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.22),transparent);transform:skewX(-20deg);transition:left .55s ease}
+.bmain:hover::before{left:130%}
+.bmain:hover{background:linear-gradient(135deg,rgba(14,165,233,.38),rgba(99,102,241,.38));border-color:rgba(56,189,248,.65);box-shadow:0 0 22px rgba(56,189,248,.28),inset 0 1px 0 rgba(255,255,255,.12);transform:translateY(-1px)}
+.bmain:disabled{opacity:.4;cursor:not-allowed;transform:none}
 
 /* لودینگ */
-.loading-card {
-  display:none; width:100%; max-width:680px;
-  background:var(--glass); border:1px solid var(--glass-border);
-  backdrop-filter:var(--blur); border-radius:24px; padding:32px;
-  text-align:center; margin-bottom:18px;
-}
-.ring { width:48px; height:48px; margin:0 auto 14px; border:3px solid rgba(255,255,255,0.08); border-top-color:var(--accent); border-radius:50%; animation:spin 0.85s linear infinite; }
-@keyframes spin { to { transform:rotate(360deg); } }
-.loading-txt { color:var(--text-muted); font-size:0.9rem; }
+.lcard{display:none;width:100%;max-width:680px;background:var(--g);border:1px solid var(--gb);backdrop-filter:var(--blur);border-radius:22px;padding:30px;text-align:center;margin-bottom:16px}
+.ring{width:46px;height:46px;margin:0 auto 13px;border:3px solid rgba(255,255,255,.07);border-top-color:var(--a);border-radius:50%;animation:spin .85s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ltxt{color:var(--tm);font-size:.88rem}
 
 /* خطا */
-.error-card {
-  display:none; width:100%; max-width:680px;
-  background:rgba(248,113,113,0.07); border:1px solid rgba(248,113,113,0.25);
-  backdrop-filter:var(--blur); border-radius:16px; padding:15px 20px;
-  margin-bottom:18px; color:var(--error); font-size:0.9rem; text-align:center;
-}
+.ecard{display:none;width:100%;max-width:680px;background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.22);backdrop-filter:var(--blur);border-radius:14px;padding:14px 18px;margin-bottom:16px;color:var(--err);font-size:.88rem;text-align:center}
 
-/* نتایج */
-.result-card {
-  display:none; width:100%; max-width:680px;
-  background:var(--glass); border:1px solid var(--glass-border);
-  backdrop-filter:var(--blur); border-radius:24px; padding:26px;
-  margin-bottom:18px; animation:fadeUp 0.4s ease both;
-  box-shadow:0 25px 60px rgba(0,0,0,0.4);
-}
-.vid-head { display:flex; gap:14px; align-items:center; margin-bottom:20px; }
-.vid-thumb { width:110px; height:62px; object-fit:cover; border-radius:10px; flex-shrink:0; border:1px solid var(--glass-border); }
-.vid-thumb-sq { width:72px; height:72px; object-fit:cover; border-radius:50%; flex-shrink:0; border:2px solid var(--glass-border); }
-.vid-meta { flex:1; min-width:0; }
-.vid-t { font-size:0.95rem; font-weight:600; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.vid-p { font-size:0.78rem; color:var(--text-muted); }
+/* نتیجه */
+.rcard{display:none;width:100%;max-width:680px;background:var(--g);border:1px solid var(--gb);backdrop-filter:var(--blur);border-radius:22px;padding:24px;margin-bottom:16px;animation:fup .4s ease both;box-shadow:0 25px 60px rgba(0,0,0,.4)}
+.vhead{display:flex;gap:13px;align-items:center;margin-bottom:20px}
+.vthumb{width:106px;height:60px;object-fit:cover;border-radius:9px;flex-shrink:0;border:1px solid var(--gb)}
+.vtitle{font-size:.92rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px}
+.vplat{font-size:.75rem;color:var(--tm)}
+.slabel{font-size:.73rem;color:#334155;margin:10px 0 7px;font-weight:500;text-transform:uppercase;letter-spacing:.06em}
 
-/* بخش موزیک */
-.music-card {
-  background:rgba(129,140,248,0.08); border:1px solid rgba(129,140,248,0.2);
-  border-radius:14px; padding:14px 16px; margin-bottom:14px;
-  display:flex; align-items:center; gap:12px;
-}
-.music-cover { width:44px; height:44px; border-radius:8px; object-fit:cover; flex-shrink:0; background:#1a1a3a; }
-.music-info { flex:1; min-width:0; }
-.music-name { font-size:0.88rem; font-weight:600; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.music-artist { font-size:0.76rem; color:var(--text-muted); }
-.music-btns { display:flex; gap:6px; flex-shrink:0; }
-.music-btn {
-  position:relative; overflow:hidden;
-  background:rgba(129,140,248,0.15); border:1px solid rgba(129,140,248,0.3);
-  border-radius:8px; padding:6px 12px; color:#a5b4fc;
-  font-family:'Vazirmatn',sans-serif; font-size:0.78rem; cursor:pointer;
-  text-decoration:none; transition:all 0.25s;
-}
-.music-btn::before {
-  content:''; position:absolute; top:-50%; left:-60%; width:40%; height:200%;
-  background:linear-gradient(105deg,transparent,rgba(255,255,255,0.2),transparent);
-  transform:skewX(-20deg); transition:left 0.5s ease;
-}
-.music-btn:hover::before { left:130%; }
-.music-btn:hover { background:rgba(129,140,248,0.3); border-color:rgba(129,140,248,0.6); box-shadow:0 0 15px rgba(129,140,248,0.25); }
+/* دکمه دانلود — شیشه‌ای */
+.dlb{display:flex;align-items:center;justify-content:space-between;width:100%;position:relative;overflow:hidden;background:rgba(255,255,255,.04);border:1px solid var(--gb);border-radius:11px;padding:12px 15px;color:var(--t);text-decoration:none;font-family:'Vazirmatn',sans-serif;font-size:.86rem;cursor:pointer;transition:all .25s;margin-bottom:7px}
+.dlb::before{content:'';position:absolute;top:-50%;left:-60%;width:33%;height:200%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.16),transparent);transform:skewX(-20deg);transition:left .5s ease}
+.dlb:hover::before{left:130%}
+.dlb.vbtn:hover{background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.38);box-shadow:0 0 18px rgba(56,189,248,.1),inset 0 1px 0 rgba(255,255,255,.07);transform:translateX(-2px)}
+.dlb.abtn:hover{background:rgba(129,140,248,.08);border-color:rgba(129,140,248,.38);box-shadow:0 0 18px rgba(129,140,248,.1),inset 0 1px 0 rgba(255,255,255,.07);transform:translateX(-2px)}
+.dlb.pbtn:hover{background:rgba(244,114,182,.08);border-color:rgba(244,114,182,.38);box-shadow:0 0 18px rgba(244,114,182,.1),inset 0 1px 0 rgba(255,255,255,.07);transform:translateX(-2px)}
+.dll{display:flex;align-items:center;gap:9px}
+.badge{font-size:.68rem;padding:2px 8px;border-radius:20px;font-weight:600}
+.bv{background:rgba(56,189,248,.1);color:var(--a);border:1px solid rgba(56,189,248,.22)}
+.ba{background:rgba(129,140,248,.1);color:var(--a2);border:1px solid rgba(129,140,248,.22)}
+.bp{background:rgba(244,114,182,.1);color:var(--a3);border:1px solid rgba(244,114,182,.22)}
+.darr{color:var(--tm);transition:all .2s}
+.dlb:hover .darr{transform:translateX(-3px);color:var(--a)}
+.dlb.abtn:hover .darr{color:var(--a2)}
+.dlb.pbtn:hover .darr{color:var(--a3)}
 
-/* دکمه‌های دانلود — شیشه‌ای درخشان */
-.dl-btn {
-  display:flex; align-items:center; justify-content:space-between;
-  width:100%; position:relative; overflow:hidden;
-  background:rgba(255,255,255,0.04); border:1px solid var(--glass-border);
-  border-radius:12px; padding:13px 16px; color:var(--text);
-  text-decoration:none; font-family:'Vazirmatn',sans-serif;
-  font-size:0.88rem; cursor:pointer; transition:all 0.25s; margin-bottom:8px;
-}
-.dl-btn::before {
-  content:''; position:absolute; top:-50%; left:-60%; width:35%; height:200%;
-  background:linear-gradient(105deg,transparent,rgba(255,255,255,0.18),transparent);
-  transform:skewX(-20deg); transition:left 0.55s ease;
-}
-.dl-btn:hover::before { left:130%; }
-.dl-btn:hover {
-  background:rgba(56,189,248,0.08);
-  border-color:rgba(56,189,248,0.4);
-  box-shadow:0 0 20px rgba(56,189,248,0.12), inset 0 1px 0 rgba(255,255,255,0.08);
-  transform:translateX(-2px);
-}
-.dl-btn.audio-btn:hover {
-  background:rgba(129,140,248,0.08);
-  border-color:rgba(129,140,248,0.4);
-  box-shadow:0 0 20px rgba(129,140,248,0.12), inset 0 1px 0 rgba(255,255,255,0.08);
-}
-.dl-btn.photo-btn:hover {
-  background:rgba(244,114,182,0.08);
-  border-color:rgba(244,114,182,0.4);
-  box-shadow:0 0 20px rgba(244,114,182,0.12), inset 0 1px 0 rgba(255,255,255,0.08);
-}
-.dl-left { display:flex; align-items:center; gap:10px; }
-.badge {
-  font-size:0.7rem; padding:2px 9px; border-radius:20px; font-weight:600;
-}
-.badge-v { background:rgba(56,189,248,0.12); color:var(--accent); border:1px solid rgba(56,189,248,0.25); }
-.badge-a { background:rgba(129,140,248,0.12); color:var(--accent2); border:1px solid rgba(129,140,248,0.25); }
-.badge-p { background:rgba(244,114,182,0.12); color:var(--accent3); border:1px solid rgba(244,114,182,0.25); }
-.dl-arrow { color:var(--text-muted); transition:all 0.2s; }
-.dl-btn:hover .dl-arrow { color:var(--accent); transform:translateX(-3px); }
-.dl-btn.audio-btn:hover .dl-arrow { color:var(--accent2); }
-.dl-btn.photo-btn:hover .dl-arrow { color:var(--accent3); }
+footer{margin-top:auto;padding-top:40px;text-align:center;animation:fup .7s ease .3s both}
+.fb{font-size:.85rem;font-weight:600;color:#334155;margin-bottom:3px}.fb span{color:var(--a)}
+.fs{color:#1e293b;font-size:.73rem}
 
-.section-sep { font-size:0.75rem; color:#334155; margin:12px 0 8px; font-weight:500; }
-
-/* فوتر */
-footer { margin-top:auto; padding-top:44px; text-align:center; animation:fadeUp 0.7s ease 0.3s both; }
-.footer-brand { font-size:0.88rem; font-weight:600; color:#334155; margin-bottom:4px; }
-.footer-brand span { color:var(--accent); }
-
-@keyframes fadeDown { from{opacity:0;transform:translateY(-18px)} to{opacity:1;transform:translateY(0)} }
-@keyframes fadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
-
-@media(max-width:480px) {
-  .main-card,.result-card,.loading-card{padding:18px}
-  .options-row{grid-template-columns:1fr}
-  h1{font-size:1.75rem}
-  .music-btns{flex-direction:column}
-}
+@keyframes fdown{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fup{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:480px){.card,.rcard,.lcard{padding:17px}h1{font-size:1.7rem}}
 </style>
 </head>
 <body>
-<div class="bg-orbs">
-  <div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div>
-</div>
+<div class="orbs"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
 <div class="page">
+<header>
+  <div class="pill"><span style="font-size:1.1rem">⬇️</span><div class="pdot"></div><span class="pname">Sam Houston Downloader</span></div>
+  <h1>دانلود سریع ویدیو</h1>
+  <p class="sub">توییتر • اینستاگرام • تیک‌تاک</p>
+</header>
 
-  <header>
-    <div class="logo-pill">
-      <span style="font-size:1.1rem">⬇️</span>
-      <div class="logo-dot"></div>
-      <span class="logo-name">Sam Houston Downloader</span>
-    </div>
-    <h1>دانلود سریع ویدیو</h1>
-    <p class="tagline">توییتر • اینستاگرام • تیک‌تاک</p>
-  </header>
-
-  <div class="main-card">
-    <div class="platforms">
-      <button class="plat-btn active" onclick="setPlatform('instagram',this)">
-        <span class="plat-dot dot-ig"></span> اینستاگرام
-      </button>
-      <button class="plat-btn" onclick="setPlatform('twitter',this)">
-        <span class="plat-dot dot-tw"></span> Twitter / X
-      </button>
-      <button class="plat-btn" onclick="setPlatform('tiktok',this)">
-        <span class="plat-dot dot-tt"></span> تیک‌تاک
-      </button>
-    </div>
-
-    <input class="url-input" type="text" id="url"
-      placeholder="لینک پست، ریل، استوری یا پروفایل را paste کنید...">
-
-    <div class="options-row">
-      <div>
-        <div class="opt-label">نوع فایل</div>
-        <div class="seg">
-          <button class="seg-btn active" onclick="setType('video',this)">🎬 ویدیو</button>
-          <button class="seg-btn" onclick="setType('audio',this)">🎵 صدا</button>
-          <button class="seg-btn" onclick="setType('photo',this)">🖼 عکس</button>
-        </div>
-      </div>
-      <div id="qg">
-        <div class="opt-label">کیفیت</div>
-        <select class="q-select" id="quality">
-          <option value="best">بهترین کیفیت</option>
-          <option value="1080">1080p</option>
-          <option value="720" selected>720p</option>
-          <option value="480">480p</option>
-          <option value="360">360p</option>
-        </select>
-      </div>
-    </div>
-
-    <button class="btn-main" onclick="startDownload()" id="dl-btn">
-      ⬇️ دریافت لینک دانلود
-    </button>
+<div class="card">
+  <div class="plats">
+    <button class="pb on" onclick="setP('instagram',this)"><span class="pd dig"></span>اینستاگرام</button>
+    <button class="pb" onclick="setP('twitter',this)"><span class="pd dtw"></span>Twitter / X</button>
+    <button class="pb" onclick="setP('tiktok',this)"><span class="pd dtt"></span>تیک‌تاک</button>
   </div>
+  <input class="ui" id="url" placeholder="لینک پست یا ویدیو را paste کنید...">
+  <button class="bmain" onclick="go()" id="btn">⬇️ دریافت لینک‌های دانلود</button>
+</div>
 
-  <div class="loading-card" id="loading-card">
-    <div class="ring"></div>
-    <p class="loading-txt" id="loading-txt">در حال دریافت اطلاعات...</p>
-  </div>
+<div class="lcard" id="lcard"><div class="ring"></div><p class="ltxt" id="ltxt">در حال دریافت...</p></div>
+<div class="ecard" id="ecard"></div>
+<div class="rcard" id="rcard">
+  <div class="vhead" id="vhead"></div>
+  <div id="vlinks"></div>
+  <div id="alinks"></div>
+</div>
 
-  <div class="error-card" id="error-card"></div>
-
-  <div class="result-card" id="result-card">
-    <div class="vid-head" id="vid-head"></div>
-    <div id="music-section"></div>
-    <div id="dl-links"></div>
-  </div>
-
-  <footer>
-    <div class="footer-brand">Sam <span>Houston</span> Downloader</div>
-    <div style="color:#1e293b;font-size:0.75rem;margin-top:3px">دانلود رایگان و بدون محدودیت</div>
-  </footer>
+<footer><div class="fb">Sam <span>Houston</span> Downloader</div><div class="fs">دانلود رایگان و بدون محدودیت</div></footer>
 </div>
 
 <script>
-let selType = 'video', selPlatform = 'instagram';
-
-function setPlatform(p, el) {
-  selPlatform = p;
-  document.querySelectorAll('.plat-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
+let plat = 'instagram';
+function setP(p,el){
+  plat=p;
+  document.querySelectorAll('.pb').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
 }
-
-function setType(t, el) {
-  selType = t;
-  document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('qg').style.opacity = t === 'audio' || t === 'photo' ? '0.4' : '1';
+function load(txt){
+  document.getElementById('lcard').style.display='block';
+  document.getElementById('ltxt').textContent=txt||'در حال دریافت...';
+  document.getElementById('rcard').style.display='none';
+  document.getElementById('ecard').style.display='none';
 }
-
-function showLoading(txt) {
-  document.getElementById('loading-card').style.display = 'block';
-  document.getElementById('loading-txt').textContent = txt || 'در حال دریافت اطلاعات...';
-  document.getElementById('result-card').style.display = 'none';
-  document.getElementById('error-card').style.display = 'none';
+function err(msg){
+  document.getElementById('lcard').style.display='none';
+  document.getElementById('ecard').textContent='⚠️ '+msg;
+  document.getElementById('ecard').style.display='block';
+  document.getElementById('btn').disabled=false;
 }
-
-function showError(msg) {
-  document.getElementById('loading-card').style.display = 'none';
-  document.getElementById('error-card').textContent = '⚠️ ' + msg;
-  document.getElementById('error-card').style.display = 'block';
-  document.getElementById('dl-btn').disabled = false;
+function makeBtn(link){
+  const a=document.createElement('a');
+  const cls=link.t==='a'?'abtn':link.t==='p'?'pbtn':'vbtn';
+  const bc=link.t==='a'?'ba':link.t==='p'?'bp':'bv';
+  a.className='dlb '+cls;
+  a.href=link.url;
+  a.target='_blank';
+  a.innerHTML=`<div class="dll"><span>${link.icon}</span><span>${link.label}</span><span class="badge ${bc}">${link.ext}</span></div><span class="darr">←</span>`;
+  return a;
 }
-
-function showResults(data) {
-  document.getElementById('loading-card').style.display = 'none';
-
+function show(data){
+  document.getElementById('lcard').style.display='none';
   // هدر
-  const head = document.getElementById('vid-head');
-  const isProfile = data.is_profile;
-  if (data.thumb) {
-    head.innerHTML = `
-      <img class="${isProfile ? 'vid-thumb-sq' : 'vid-thumb'}" src="${data.thumb}" onerror="this.style.display='none'">
-      <div class="vid-meta">
-        <div class="vid-t">${data.title || 'محتوا'}</div>
-        <div class="vid-p">${data.platform || ''}</div>
-      </div>`;
-  } else {
-    head.innerHTML = `<div class="vid-meta"><div class="vid-t">${data.title || 'محتوا'}</div><div class="vid-p">${data.platform || ''}</div></div>`;
+  const h=document.getElementById('vhead');
+  h.innerHTML=data.thumb
+    ?`<img class="vthumb" src="${data.thumb}" onerror="this.style.display='none'"><div><div class="vtitle">${data.title||'ویدیو'}</div><div class="vplat">${data.platform||''}</div></div>`
+    :`<div><div class="vtitle">${data.title||'ویدیو'}</div><div class="vplat">${data.platform||''}</div></div>`;
+  // لینک‌های ویدیو
+  const vd=document.getElementById('vlinks');
+  const ad=document.getElementById('alinks');
+  vd.innerHTML=''; ad.innerHTML='';
+  const vlinks=data.links.filter(l=>l.t==='v'||l.t==='p');
+  const alinks=data.links.filter(l=>l.t==='a');
+  if(vlinks.length){
+    const s=document.createElement('div');
+    s.className='slabel';
+    s.textContent='🎬 ویدیو / تصویر';
+    vd.appendChild(s);
+    vlinks.forEach(l=>vd.appendChild(makeBtn(l)));
   }
-
-  // بخش موزیک
-  const musicSec = document.getElementById('music-section');
-  musicSec.innerHTML = '';
-  if (data.music) {
-    const m = data.music;
-    musicSec.innerHTML = `
-      <div class="music-card">
-        ${m.cover ? `<img class="music-cover" src="${m.cover}" onerror="this.style.display='none'">` : '<div class="music-cover" style="display:flex;align-items:center;justify-content:center;font-size:1.3rem">🎵</div>'}
-        <div class="music-info">
-          <div class="music-name">${m.name || 'موزیک اصلی'}</div>
-          <div class="music-artist">${m.artist || ''}</div>
-        </div>
-        <div class="music-btns">
-          ${m.spotify ? `<a class="music-btn" href="${m.spotify}" target="_blank">🎧 Spotify</a>` : ''}
-          ${m.apple ? `<a class="music-btn" href="${m.apple}" target="_blank">🍎 Apple</a>` : ''}
-          ${m.youtube ? `<a class="music-btn" href="${m.youtube}" target="_blank">▶ YouTube</a>` : ''}
-          ${!m.spotify && !m.apple && !m.youtube ? `<a class="music-btn" href="https://open.spotify.com/search/${encodeURIComponent((m.name||'') + ' ' + (m.artist||''))}" target="_blank">🔍 جستجو</a>` : ''}
-        </div>
-      </div>`;
+  if(alinks.length){
+    const s=document.createElement('div');
+    s.className='slabel';
+    s.textContent='🎵 صدا';
+    ad.appendChild(s);
+    alinks.forEach(l=>ad.appendChild(makeBtn(l)));
   }
-
-  // لینک‌های دانلود
-  const dlDiv = document.getElementById('dl-links');
-  dlDiv.innerHTML = '';
-
-  if (data.links && data.links.length > 0) {
-    data.links.forEach(link => {
-      const a = document.createElement('a');
-      const cls = link.type === 'audio' ? 'audio-btn' : link.type === 'photo' ? 'photo-btn' : '';
-      const badge = link.type === 'audio' ? 'badge-a' : link.type === 'photo' ? 'badge-p' : 'badge-v';
-      a.className = `dl-btn ${cls}`;
-      a.href = link.url;
-      a.target = '_blank';
-      a.innerHTML = `
-        <div class="dl-left">
-          <span>${link.icon}</span>
-          <span>${link.label}</span>
-          <span class="badge ${badge}">${link.ext}</span>
-        </div>
-        <span class="dl-arrow">←</span>`;
-      dlDiv.appendChild(a);
-    });
-  }
-
-  document.getElementById('result-card').style.display = 'block';
-  document.getElementById('dl-btn').disabled = false;
+  document.getElementById('rcard').style.display='block';
+  document.getElementById('btn').disabled=false;
 }
-
-async function startDownload() {
-  const url = document.getElementById('url').value.trim();
-  if (!url) { showError('لطفاً لینک را وارد کنید'); return; }
-  document.getElementById('dl-btn').disabled = true;
-  document.getElementById('error-card').style.display = 'none';
-  showLoading('در حال دریافت اطلاعات...');
-  try {
-    const r = await fetch('/api/info', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({url, type: selType, quality: document.getElementById('quality').value, platform: selPlatform})
+async function go(){
+  const url=document.getElementById('url').value.trim();
+  if(!url){err('لطفاً لینک را وارد کنید');return;}
+  document.getElementById('btn').disabled=true;
+  document.getElementById('ecard').style.display='none';
+  load('در حال دریافت اطلاعات...');
+  try{
+    const r=await fetch('/api/get',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({url,platform:plat})
     });
-    const data = await r.json();
-    if (data.error) { showError(data.error); return; }
-    showResults(data);
-  } catch(e) { showError('خطا: ' + e.message); }
+    const d=await r.json();
+    if(d.error){err(d.error);return;}
+    show(d);
+  }catch(e){err('خطا: '+e.message);}
 }
-
-document.getElementById('url').addEventListener('keydown', e => { if (e.key === 'Enter') startDownload(); });
+document.getElementById('url').addEventListener('keydown',e=>{if(e.key==='Enter')go();});
 </script>
 </body>
 </html>'''
@@ -466,44 +220,41 @@ document.getElementById('url').addEventListener('keydown', e => { if (e.key === 
 def index():
     return render_template_string(HTML)
 
-@app.route('/api/info', methods=['POST'])
-def get_info():
+@app.route('/api/get', methods=['POST'])
+def get_links():
+    import subprocess, json, re
+
     data = request.get_json()
     url = data.get('url', '').strip()
-    dl_type = data.get('type', 'video')
-    quality = data.get('quality', '720')
 
     if not url:
         return jsonify({'error': 'لینک وارد نشده'})
 
-    # تشخیص پروفایل اینستاگرام
-    is_profile = False
-    import re
-    if re.match(r'https?://(www\.)?instagram\.com/[^/]+/?$', url.rstrip('/')):
-        is_profile = True
-        return handle_instagram_profile(url)
+    # اجرای yt-dlp برای گرفتن همه فرمت‌ها
+    cmd = [
+        'yt-dlp',
+        '--no-check-certificates',
+        '--no-playlist',
+        '-j',
+        '--extractor-args', 'twitter:api=legacy',
+        url
+    ]
 
-    # yt-dlp برای استخراج اطلاعات
-    # برای عکس از all-formats استفاده می‌کنیم
-    if dl_type == 'photo':
-        cmd = ['yt-dlp', '--no-check-certificates', '--no-playlist', '-j',
-               '--write-thumbnail', '--skip-download', url]
-    else:
-        cmd = ['yt-dlp', '--no-check-certificates', '--no-playlist', '-j', url]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, stdin=subprocess.DEVNULL)
         if result.returncode != 0:
-            # برای عکس‌های اینستاگرام با روش مستقیم امتحان می‌کنیم
-            if dl_type == 'photo':
-                return get_instagram_photo_direct(url)
-            return jsonify({'error': 'خطا: ' + result.stderr[-250:]})
-        # ممکنه چند خط JSON داشته باشیم (چندین عکس)
+            # retry بدون extractor-args
+            cmd2 = ['yt-dlp', '--no-check-certificates', '--no-playlist', '-j', url]
+            result = subprocess.run(cmd2, capture_output=True, text=True, timeout=30, stdin=subprocess.DEVNULL)
+            if result.returncode != 0:
+                return jsonify({'error': result.stderr[-300:] if result.stderr else 'خطا در دریافت اطلاعات'})
+
+        # parse - ممکنه چند خط JSON باشه
         lines = [l for l in result.stdout.strip().split('\n') if l.strip()]
         if not lines:
-            if dl_type == 'photo':
-                return get_instagram_photo_direct(url)
             return jsonify({'error': 'اطلاعات دریافت نشد'})
         info = json.loads(lines[0])
+
     except subprocess.TimeoutExpired:
         return jsonify({'error': 'زمان پردازش تمام شد'})
     except Exception as e:
@@ -516,265 +267,131 @@ def get_info():
 
     links = []
 
-    # اطلاعات موزیک از اینستاگرام
-    music_info = None
-    if 'instagram' in platform.lower() or 'instagram' in url.lower():
-        music_data = info.get('music_metadata') or info.get('music') or {}
-        music_title = music_data.get('music_name') or info.get('music_title', '')
-        music_artist = music_data.get('artist_name') or info.get('music_author', '')
-        if music_title or music_artist:
-            music_info = {
-                'name': music_title,
-                'artist': music_artist,
-                'cover': music_data.get('album_cover_url', ''),
-                'spotify': None,
-                'apple': None,
-                'youtube': f"https://www.youtube.com/results?search_query={url_quote((music_title or '') + ' ' + (music_artist or ''))}" if music_title else None
-            }
+    # --- ویدیوها ---
+    vfmts = [f for f in formats if f.get('vcodec','none') != 'none' and f.get('url')]
+    # مرتب‌سازی از بالاترین کیفیت
+    vfmts.sort(key=lambda f: (f.get('height') or 0) * (f.get('tbr') or 1), reverse=True)
+    seen_h = set()
+    for f in vfmts:
+        h = f.get('height')
+        key = h or f.get('format_id','')
+        if key in seen_h:
+            continue
+        seen_h.add(key)
+        ext = f.get('ext', 'mp4')
+        label_h = f"{h}p" if h else f.get('format_note', 'ویدیو')
+        fn = uq((title or 'video') + '.' + ext)
+        links.append({
+            'url': '/dl?u=' + uq(f['url']) + '&f=' + fn + '&r=' + uq(url),
+            'label': f'ویدیو — {label_h}',
+            'ext': ext.upper(),
+            'icon': '🎬',
+            't': 'v'
+        })
+        if len(seen_h) >= 4:
+            break
 
-    if dl_type == 'photo':
-        # برای عکس از --write-info-json استفاده نمی‌کنیم، مستقیم thumbnail می‌گیریم
-        images = info.get('thumbnails', [])
-        # فیلتر کردن thumbnailهای واقعی (نه placeholder)
-        real_imgs = [x for x in images if x.get('url') and 'scontent' in x.get('url','')]
-        if not real_imgs:
-            real_imgs = [x for x in images if x.get('url') and x.get('width',0) > 100]
-        if not real_imgs:
-            real_imgs = images
+    # --- صداها ---
+    afmts = [f for f in formats if f.get('vcodec','none') == 'none' and f.get('acodec','none') != 'none' and f.get('url')]
+    afmts.sort(key=lambda f: f.get('abr') or 0, reverse=True)
+    seen_a = set()
+    for f in afmts[:3]:
+        ext = f.get('ext', 'mp3')
+        abr = f.get('abr', 0)
+        key = f"{ext}_{int(abr or 0)}"
+        if key in seen_a:
+            continue
+        seen_a.add(key)
+        label = f"صدا — {int(abr)}kbps" if abr else 'صدا'
+        fn = uq((title or 'audio') + '.' + ext)
+        links.append({
+            'url': '/dl?u=' + uq(f['url']) + '&f=' + fn + '&r=' + uq(url),
+            'label': label,
+            'ext': ext.upper(),
+            'icon': '🎵',
+            't': 'a'
+        })
 
-        if real_imgs:
-            best_img = max(real_imgs, key=lambda x: (x.get('width') or 0) * (x.get('height') or 0))
-            img_url = best_img.get('url', '')
-            if img_url:
-                fn = url_quote((title or 'photo') + '.jpg')
-                links.append({
-                    'url': '/proxy?url=' + url_quote(img_url) + '&fn=' + fn,
-                    'label': f"عکس — {best_img.get('width','?')}x{best_img.get('height','?')}" if best_img.get('width') else 'عکس با بهترین کیفیت',
-                    'ext': 'JPG', 'icon': '🖼', 'type': 'photo'
-                })
-        if not links and thumb:
-            fn = url_quote((title or 'photo') + '.jpg')
-            links.append({
-                'url': '/proxy?url=' + url_quote(thumb) + '&fn=' + fn,
-                'label': 'عکس', 'ext': 'JPG', 'icon': '🖼', 'type': 'photo'
-            })
-
-    elif dl_type == 'audio':
-        audio_fmts = [f for f in formats if f.get('vcodec') == 'none' and f.get('acodec') != 'none' and f.get('url')]
-        if audio_fmts:
-            best = max(audio_fmts, key=lambda f: f.get('abr', 0) or 0)
-            ext = best.get('ext', 'mp3')
-            fn = url_quote((title or 'audio') + '.' + ext)
-            links.append({
-                'url': '/proxy?url=' + url_quote(best['url']) + '&fn=' + fn,
-                'label': f"صدا — {int(best.get('abr',0))}kbps" if best.get('abr') else 'بهترین کیفیت صدا',
-                'ext': ext.upper(), 'icon': '🎵', 'type': 'audio'
-            })
-        if not links and info.get('url'):
-            fn = url_quote((title or 'audio') + '.mp3')
-            links.append({'url': '/proxy?url=' + url_quote(info['url']) + '&fn=' + fn, 'label': 'دانلود صدا', 'ext': 'MP3', 'icon': '🎵', 'type': 'audio'})
-
-    else:
-        target_h = {'1080': 1080, '720': 720, '480': 480, '360': 360, 'best': 9999}
-        max_h = target_h.get(quality, 720)
-        vfmts = [f for f in formats if f.get('vcodec') != 'none' and f.get('url') and (f.get('height') or 0) <= max_h]
-        vfmts.sort(key=lambda f: (f.get('height') or 0) * (f.get('tbr') or 1), reverse=True)
-        seen = set()
-        for f in vfmts[:4]:
-            h = f.get('height')
-            if h in seen: continue
-            seen.add(h)
-            ext = f.get('ext', 'mp4')
-            fn = url_quote((title or 'video') + '.' + ext)
-            links.append({
-                'url': '/proxy?url=' + url_quote(f['url']) + '&fn=' + fn,
-                'label': f"ویدیو — {h}p" if h else 'بهترین کیفیت',
-                'ext': ext.upper(), 'icon': '🎬', 'type': 'video'
-            })
-        if not links and info.get('url'):
-            fn = url_quote((title or 'video') + '.mp4')
-            links.append({'url': '/proxy?url=' + url_quote(info['url']) + '&fn=' + fn, 'label': 'دانلود ویدیو', 'ext': 'MP4', 'icon': '🎬', 'type': 'video'})
+    # اگه format جداگانه نبود، از url مستقیم استفاده کن
+    if not links and info.get('url'):
+        ext = info.get('ext', 'mp4')
+        fn = uq((title or 'video') + '.' + ext)
+        links.append({
+            'url': '/dl?u=' + uq(info['url']) + '&f=' + fn + '&r=' + uq(url),
+            'label': 'دانلود ویدیو',
+            'ext': ext.upper(),
+            'icon': '🎬',
+            't': 'v'
+        })
 
     if not links:
-        return jsonify({'error': 'فرمت دانلود پیدا نشد'})
+        return jsonify({'error': 'هیچ فرمت قابل دانلودی پیدا نشد'})
 
     return jsonify({
-        'title': title, 'platform': platform,
-        'thumb': thumb, 'links': links,
-        'music': music_info, 'is_profile': False
+        'title': title,
+        'platform': platform,
+        'thumb': thumb,
+        'links': links
     })
 
 
+@app.route('/dl')
+def download():
+    """Proxy دانلود با header درست"""
+    file_url = uuq(request.args.get('u', ''))
+    filename = uuq(request.args.get('f', 'download'))
+    referer_url = uuq(request.args.get('r', ''))
 
-def get_instagram_photo_direct(url):
-    """دانلود مستقیم عکس اینستاگرام بدون yt-dlp"""
-    import re
-    # استخراج shortcode از URL
-    m = re.search(r'instagram\.com/p/([^/?]+)', url)
-    if not m:
-        m = re.search(r'instagram\.com/reel/([^/?]+)', url)
-    if not m:
-        return jsonify({'error': 'لینک اینستاگرام معتبر نیست'})
-    
-    shortcode = m.group(1)
-    
-    # استفاده از API عمومی اینستاگرام
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.9',
-        }
-        # API اینستاگرام برای گرفتن اطلاعات پست
-        api_url = f'https://www.instagram.com/p/{shortcode}/?__a=1&__d=dis'
-        r = req_lib.get(api_url, headers=headers, timeout=15)
-        
-        links = []
-        thumb = ''
-        title = f'instagram_{shortcode}'
-        
-        if r.status_code == 200:
-            try:
-                data = r.json()
-                item = data.get('graphql', {}).get('shortcode_media', {}) or data.get('items', [{}])[0] if data.get('items') else {}
-                
-                # عکس
-                display_url = item.get('display_url', '')
-                resources = item.get('display_resources', []) or item.get('image_versions2', {}).get('candidates', [])
-                
-                if resources:
-                    best = max(resources, key=lambda x: (x.get('config_width', 0) or x.get('width', 0)))
-                    img_url = best.get('src') or best.get('url', '')
-                    if img_url:
-                        fn = url_quote(f'{shortcode}.jpg')
-                        links.append({'url': '/proxy?url=' + url_quote(img_url) + '&fn=' + fn,
-                                     'label': 'عکس با بهترین کیفیت', 'ext': 'JPG', 'icon': '🖼', 'type': 'photo'})
-                        thumb = img_url
-                elif display_url:
-                    fn = url_quote(f'{shortcode}.jpg')
-                    links.append({'url': '/proxy?url=' + url_quote(display_url) + '&fn=' + fn,
-                                 'label': 'عکس', 'ext': 'JPG', 'icon': '🖼', 'type': 'photo'})
-                    thumb = display_url
-            except:
-                pass
-        
-        # اگه API کار نکرد، از thumbnail استفاده کن
-        if not links:
-            # سعی با yt-dlp بدون video filter
-            cmd = ['yt-dlp', '--no-check-certificates', '--no-playlist', 
-                   '--flat-playlist', '-j', url]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=20, stdin=subprocess.DEVNULL)
-            if result.returncode == 0:
-                for line in result.stdout.strip().split('\n'):
-                    if not line: continue
-                    try:
-                        info = json.loads(line)
-                        t = info.get('thumbnail', '')
-                        if t:
-                            fn = url_quote(f'{shortcode}.jpg')
-                            links.append({'url': '/proxy?url=' + url_quote(t) + '&fn=' + fn,
-                                         'label': 'عکس', 'ext': 'JPG', 'icon': '🖼', 'type': 'photo'})
-                            thumb = t
-                            break
-                    except: continue
-        
-        if not links:
-            # آخرین fallback - thumbnail از URL مستقیم
-            thumb_url = f'https://www.instagram.com/p/{shortcode}/media/?size=l'
-            fn = url_quote(f'{shortcode}.jpg')
-            links = [{'url': '/proxy?url=' + url_quote(thumb_url) + '&fn=' + fn,
-                     'label': 'عکس', 'ext': 'JPG', 'icon': '🖼', 'type': 'photo'}]
-        
-        return jsonify({'title': title, 'platform': 'Instagram', 'thumb': thumb,
-                       'links': links, 'music': None, 'is_profile': False})
-    except Exception as e:
-        return jsonify({'error': f'خطا در دریافت عکس: {str(e)}'})
-
-def handle_instagram_profile(url):
-    """دانلود عکس پروفایل اینستاگرام"""
-    import re
-    m = re.search(r'instagram\.com/([^/?#]+)', url)
-    if not m:
-        return jsonify({'error': 'نام کاربری پیدا نشد'})
-    username = m.group(1).strip('/')
-
-    # استفاده از yt-dlp برای گرفتن اطلاعات
-    cmd = ['yt-dlp', '--no-check-certificates', '-j',
-           f'https://www.instagram.com/{username}/']
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=20, stdin=subprocess.DEVNULL)
-        lines = [l for l in result.stdout.strip().split('\n') if l]
-        if lines:
-            info = json.loads(lines[0])
-            thumb = info.get('thumbnail') or info.get('uploader_url', '')
-            uploader = info.get('uploader', username)
-        else:
-            thumb = ''
-            uploader = username
-    except:
-        thumb = ''
-        uploader = username
-
-    # لینک مستقیم عکس پروفایل
-    profile_pic_url = f'https://unavatar.io/instagram/{username}'
-    fn = url_quote(f'{username}_profile.jpg')
-
-    links = [{
-        'url': '/proxy?url=' + url_quote(profile_pic_url) + '&fn=' + fn,
-        'label': f'عکس پروفایل @{username}',
-        'ext': 'JPG', 'icon': '👤', 'type': 'photo'
-    }]
-
-    return jsonify({
-        'title': f'@{username}',
-        'platform': 'Instagram',
-        'thumb': profile_pic_url,
-        'links': links,
-        'music': None,
-        'is_profile': True
-    })
-
-
-@app.route('/proxy')
-def proxy_download():
-    file_url = url_unquote(request.args.get('url', ''))
-    filename = url_unquote(request.args.get('fn', 'download'))
     if not file_url:
         return 'URL missing', 400
+
+    # تنظیم header بر اساس پلتفرم
+    if any(x in file_url for x in ['twimg.com', 'video.twimg', 'twvid']):
+        ref = 'https://twitter.com/'
+        ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    elif any(x in file_url for x in ['tiktok', 'tiktokcdn', 'muscdn', 'tiktokv']):
+        ref = 'https://www.tiktok.com/'
+        ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    elif any(x in file_url for x in ['cdninstagram', 'fbcdn', 'instagram']):
+        ref = 'https://www.instagram.com/'
+        ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
+    else:
+        ref = referer_url or 'https://www.google.com/'
+        ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+
+    headers = {
+        'User-Agent': ua,
+        'Referer': ref,
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+
     try:
-        # تنظیم header بر اساس پلتفرم
-        if any(x in file_url for x in ['twimg.com', 'twitter.com', 'video.twimg', 'twvideo']):
-            referer = 'https://twitter.com/'
-            ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        elif any(x in file_url for x in ['tiktok', 'tiktokcdn', 'muscdn']):
-            referer = 'https://www.tiktok.com/'
-            ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        else:
-            referer = 'https://www.instagram.com/'
-            ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'
+        r = req_lib.get(file_url, headers=headers, stream=True, timeout=90, allow_redirects=True)
 
-        headers = {
-            'User-Agent': ua,
-            'Referer': referer,
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Origin': referer.rstrip('/'),
-        }
-        r = req_lib.get(file_url, headers=headers, stream=True, timeout=60, allow_redirects=True)
+        if r.status_code in (403, 401):
+            # retry بدون Referer
+            del headers['Referer']
+            r = req_lib.get(file_url, headers=headers, stream=True, timeout=90, allow_redirects=True)
 
-        if r.status_code == 403:
-            # retry بدون Origin
-            del headers['Origin']
-            r = req_lib.get(file_url, headers=headers, stream=True, timeout=60, allow_redirects=True)
+        ct = r.headers.get('Content-Type', 'application/octet-stream')
+        # اگه content-type عکس یا ویدیو نبود، force کن
+        if 'html' in ct or 'text' in ct:
+            if filename.endswith('.mp4') or filename.endswith('.ts'):
+                ct = 'video/mp4'
+            elif filename.endswith('.mp3') or filename.endswith('.m4a'):
+                ct = 'audio/mpeg'
 
-        content_type = r.headers.get('Content-Type', 'application/octet-stream')
-        def generate():
-            for chunk in r.iter_content(chunk_size=8192):
-                if chunk: yield chunk
-        resp = Response(generate(), content_type=content_type)
+        def gen():
+            for chunk in r.iter_content(chunk_size=65536):
+                if chunk:
+                    yield chunk
+
+        resp = Response(gen(), content_type=ct)
         resp.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
         if r.headers.get('Content-Length'):
             resp.headers['Content-Length'] = r.headers['Content-Length']
+        resp.headers['Access-Control-Allow-Origin'] = '*'
         return resp
     except Exception as e:
         return str(e), 500
@@ -783,7 +400,6 @@ def proxy_download():
 @app.route('/health')
 def health():
     return jsonify({'status': 'ok'})
-
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
