@@ -484,12 +484,26 @@ def get_info():
         return handle_instagram_profile(url)
 
     # yt-dlp برای استخراج اطلاعات
-    cmd = ['yt-dlp', '--no-check-certificates', '--no-playlist', '-j', url]
+    # برای عکس از all-formats استفاده می‌کنیم
+    if dl_type == 'photo':
+        cmd = ['yt-dlp', '--no-check-certificates', '--no-playlist', '-j',
+               '--write-thumbnail', '--skip-download', url]
+    else:
+        cmd = ['yt-dlp', '--no-check-certificates', '--no-playlist', '-j', url]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, stdin=subprocess.DEVNULL)
         if result.returncode != 0:
+            # برای عکس‌های اینستاگرام با روش مستقیم امتحان می‌کنیم
+            if dl_type == 'photo':
+                return get_instagram_photo_direct(url)
             return jsonify({'error': 'خطا: ' + result.stderr[-250:]})
-        info = json.loads(result.stdout)
+        # ممکنه چند خط JSON داشته باشیم (چندین عکس)
+        lines = [l for l in result.stdout.strip().split('\n') if l.strip()]
+        if not lines:
+            if dl_type == 'photo':
+                return get_instagram_photo_direct(url)
+            return jsonify({'error': 'اطلاعات دریافت نشد'})
+        info = json.loads(lines[0])
     except subprocess.TimeoutExpired:
         return jsonify({'error': 'زمان پردازش تمام شد'})
     except Exception as e:
@@ -519,16 +533,23 @@ def get_info():
             }
 
     if dl_type == 'photo':
-        # عکس‌های پست
+        # برای عکس از --write-info-json استفاده نمی‌کنیم، مستقیم thumbnail می‌گیریم
         images = info.get('thumbnails', [])
-        if images:
-            best_img = max(images, key=lambda x: (x.get('width', 0) or 0) * (x.get('height', 0) or 0))
+        # فیلتر کردن thumbnailهای واقعی (نه placeholder)
+        real_imgs = [x for x in images if x.get('url') and 'scontent' in x.get('url','')]
+        if not real_imgs:
+            real_imgs = [x for x in images if x.get('url') and x.get('width',0) > 100]
+        if not real_imgs:
+            real_imgs = images
+
+        if real_imgs:
+            best_img = max(real_imgs, key=lambda x: (x.get('width') or 0) * (x.get('height') or 0))
             img_url = best_img.get('url', '')
             if img_url:
                 fn = url_quote((title or 'photo') + '.jpg')
                 links.append({
                     'url': '/proxy?url=' + url_quote(img_url) + '&fn=' + fn,
-                    'label': 'عکس با بهترین کیفیت',
+                    'label': f"عکس — {best_img.get('width','?')}x{best_img.get('height','?')}" if best_img.get('width') else 'عکس با بهترین کیفیت',
                     'ext': 'JPG', 'icon': '🖼', 'type': 'photo'
                 })
         if not links and thumb:
@@ -584,6 +605,91 @@ def get_info():
     })
 
 
+
+def get_instagram_photo_direct(url):
+    """دانلود مستقیم عکس اینستاگرام بدون yt-dlp"""
+    import re
+    # استخراج shortcode از URL
+    m = re.search(r'instagram\.com/p/([^/?]+)', url)
+    if not m:
+        m = re.search(r'instagram\.com/reel/([^/?]+)', url)
+    if not m:
+        return jsonify({'error': 'لینک اینستاگرام معتبر نیست'})
+    
+    shortcode = m.group(1)
+    
+    # استفاده از API عمومی اینستاگرام
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+        # API اینستاگرام برای گرفتن اطلاعات پست
+        api_url = f'https://www.instagram.com/p/{shortcode}/?__a=1&__d=dis'
+        r = req_lib.get(api_url, headers=headers, timeout=15)
+        
+        links = []
+        thumb = ''
+        title = f'instagram_{shortcode}'
+        
+        if r.status_code == 200:
+            try:
+                data = r.json()
+                item = data.get('graphql', {}).get('shortcode_media', {}) or data.get('items', [{}])[0] if data.get('items') else {}
+                
+                # عکس
+                display_url = item.get('display_url', '')
+                resources = item.get('display_resources', []) or item.get('image_versions2', {}).get('candidates', [])
+                
+                if resources:
+                    best = max(resources, key=lambda x: (x.get('config_width', 0) or x.get('width', 0)))
+                    img_url = best.get('src') or best.get('url', '')
+                    if img_url:
+                        fn = url_quote(f'{shortcode}.jpg')
+                        links.append({'url': '/proxy?url=' + url_quote(img_url) + '&fn=' + fn,
+                                     'label': 'عکس با بهترین کیفیت', 'ext': 'JPG', 'icon': '🖼', 'type': 'photo'})
+                        thumb = img_url
+                elif display_url:
+                    fn = url_quote(f'{shortcode}.jpg')
+                    links.append({'url': '/proxy?url=' + url_quote(display_url) + '&fn=' + fn,
+                                 'label': 'عکس', 'ext': 'JPG', 'icon': '🖼', 'type': 'photo'})
+                    thumb = display_url
+            except:
+                pass
+        
+        # اگه API کار نکرد، از thumbnail استفاده کن
+        if not links:
+            # سعی با yt-dlp بدون video filter
+            cmd = ['yt-dlp', '--no-check-certificates', '--no-playlist', 
+                   '--flat-playlist', '-j', url]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=20, stdin=subprocess.DEVNULL)
+            if result.returncode == 0:
+                for line in result.stdout.strip().split('\n'):
+                    if not line: continue
+                    try:
+                        info = json.loads(line)
+                        t = info.get('thumbnail', '')
+                        if t:
+                            fn = url_quote(f'{shortcode}.jpg')
+                            links.append({'url': '/proxy?url=' + url_quote(t) + '&fn=' + fn,
+                                         'label': 'عکس', 'ext': 'JPG', 'icon': '🖼', 'type': 'photo'})
+                            thumb = t
+                            break
+                    except: continue
+        
+        if not links:
+            # آخرین fallback - thumbnail از URL مستقیم
+            thumb_url = f'https://www.instagram.com/p/{shortcode}/media/?size=l'
+            fn = url_quote(f'{shortcode}.jpg')
+            links = [{'url': '/proxy?url=' + url_quote(thumb_url) + '&fn=' + fn,
+                     'label': 'عکس', 'ext': 'JPG', 'icon': '🖼', 'type': 'photo'}]
+        
+        return jsonify({'title': title, 'platform': 'Instagram', 'thumb': thumb,
+                       'links': links, 'music': None, 'is_profile': False})
+    except Exception as e:
+        return jsonify({'error': f'خطا در دریافت عکس: {str(e)}'})
+
 def handle_instagram_profile(url):
     """دانلود عکس پروفایل اینستاگرام"""
     import re
@@ -636,12 +742,31 @@ def proxy_download():
     if not file_url:
         return 'URL missing', 400
     try:
+        # تنظیم header بر اساس پلتفرم
+        if any(x in file_url for x in ['twimg.com', 'twitter.com', 'video.twimg', 'twvideo']):
+            referer = 'https://twitter.com/'
+            ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        elif any(x in file_url for x in ['tiktok', 'tiktokcdn', 'muscdn']):
+            referer = 'https://www.tiktok.com/'
+            ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        else:
+            referer = 'https://www.instagram.com/'
+            ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'
+
         headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
-            'Referer': 'https://www.instagram.com/',
+            'User-Agent': ua,
+            'Referer': referer,
             'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Origin': referer.rstrip('/'),
         }
-        r = req_lib.get(file_url, headers=headers, stream=True, timeout=60)
+        r = req_lib.get(file_url, headers=headers, stream=True, timeout=60, allow_redirects=True)
+
+        if r.status_code == 403:
+            # retry بدون Origin
+            del headers['Origin']
+            r = req_lib.get(file_url, headers=headers, stream=True, timeout=60, allow_redirects=True)
+
         content_type = r.headers.get('Content-Type', 'application/octet-stream')
         def generate():
             for chunk in r.iter_content(chunk_size=8192):
