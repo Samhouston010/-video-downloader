@@ -1,5 +1,7 @@
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, render_template_string, request, jsonify, Response
 import os
+import requests as req_lib
+from urllib.parse import quote as url_quote, unquote as url_unquote
 
 app = Flask(__name__)
 
@@ -327,7 +329,7 @@ footer {
       <span class="logo-text">Sam Houston Downloader</span>
     </div>
     <h1>دانلود سریع ویدیو</h1>
-    <p class="tagline">توییتر • اینستاگرام • تیک‌تاک — بدون تبلیغ، بدون ثبت‌نام</p>
+    <p class="tagline">توییتر • اینستاگرام • تیک‌تاک</p>
   </header>
 
   <div class="main-card">
@@ -544,8 +546,10 @@ def get_info():
         audio_fmts = [f for f in formats if f.get('vcodec') == 'none' and f.get('acodec') != 'none' and f.get('url')]
         if audio_fmts:
             best = max(audio_fmts, key=lambda f: f.get('abr', 0) or 0)
+            ext = best.get('ext','mp3')
+            fn = url_quote((title or 'audio') + '.' + ext)
             links.append({
-                'url': best['url'],
+                'url': '/proxy?url=' + url_quote(best['url']) + '&fn=' + fn,
                 'label': f"صدا — {int(best.get('abr',0))}kbps" if best.get('abr') else 'بهترین کیفیت صدا',
                 'ext': best.get('ext', 'mp3').upper(),
                 'icon': '🎵',
@@ -553,7 +557,8 @@ def get_info():
             })
         # fallback
         if not links and info.get('url'):
-            links.append({'url': info['url'], 'label': 'دانلود صدا', 'ext': 'MP3', 'icon': '🎵', 'type': 'audio'})
+            fn = url_quote((title or 'audio') + '.mp3')
+            links.append({'url': '/proxy?url=' + url_quote(info['url']) + '&fn=' + fn, 'label': 'دانلود صدا', 'ext': 'MP3', 'icon': '🎵', 'type': 'audio'})
     else:
         # فرمت‌های ویدیو
         target_heights = {'1080': 1080, '720': 720, '480': 480, '360': 360, 'best': 9999}
@@ -575,17 +580,20 @@ def get_info():
             if h in seen_heights:
                 continue
             seen_heights.add(h)
+            ext = f.get('ext','mp4')
+            fn = url_quote((title or 'video') + '.' + ext)
             links.append({
-                'url': f['url'],
+                'url': '/proxy?url=' + url_quote(f['url']) + '&fn=' + fn,
                 'label': f"ویدیو — {label_h}",
-                'ext': f.get('ext', 'mp4').upper(),
+                'ext': ext.upper(),
                 'icon': '🎬',
                 'type': 'video'
             })
 
         # اگه format stream مستقیم داشت
         if not links and info.get('url'):
-            links.append({'url': info['url'], 'label': 'دانلود ویدیو', 'ext': 'MP4', 'icon': '🎬', 'type': 'video'})
+            fn = url_quote((title or 'video') + '.mp4')
+            links.append({'url': '/proxy?url=' + url_quote(info['url']) + '&fn=' + fn, 'label': 'دانلود ویدیو', 'ext': 'MP4', 'icon': '🎬', 'type': 'video'})
 
     if not links:
         return jsonify({'error': 'فرمت دانلود پیدا نشد'})
@@ -596,6 +604,31 @@ def get_info():
         'thumb': thumb,
         'links': links
     })
+
+
+@app.route('/proxy')
+def proxy_download():
+    file_url = url_unquote(request.args.get('url', ''))
+    filename = url_unquote(request.args.get('fn', 'download'))
+    if not file_url:
+        return 'URL missing', 400
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Referer': 'https://www.instagram.com/',
+        }
+        r = req_lib.get(file_url, headers=headers, stream=True, timeout=60)
+        content_type = r.headers.get('Content-Type', 'application/octet-stream')
+        def generate():
+            for chunk in r.iter_content(chunk_size=8192):
+                if chunk:
+                    yield chunk
+        response = Response(generate(), content_type=content_type)
+        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response.headers['Content-Length'] = r.headers.get('Content-Length', '')
+        return response
+    except Exception as e:
+        return str(e), 500
 
 @app.route('/health')
 def health():
