@@ -1,14 +1,11 @@
 from flask import Flask, request, jsonify, send_file, render_template_string
 import subprocess
 import os
-import json
 import tempfile
 import threading
 import uuid
 
 app = Flask(__name__)
-
-# Store download progress
 downloads = {}
 
 HTML = '''<!DOCTYPE html>
@@ -19,9 +16,7 @@ HTML = '''<!DOCTYPE html>
 <title>دانلودر ویدیو</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;600;700&display=swap');
-  
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  
   body {
     font-family: 'Vazirmatn', sans-serif;
     background: #0a0a0f;
@@ -32,12 +27,7 @@ HTML = '''<!DOCTYPE html>
     justify-content: center;
     padding: 20px;
   }
-
-  .container {
-    width: 100%;
-    max-width: 600px;
-  }
-
+  .container { width: 100%; max-width: 600px; }
   h1 {
     text-align: center;
     font-size: 2rem;
@@ -47,14 +37,7 @@ HTML = '''<!DOCTYPE html>
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-
-  .subtitle {
-    text-align: center;
-    color: #666;
-    font-size: 0.85rem;
-    margin-bottom: 32px;
-  }
-
+  .subtitle { text-align: center; color: #666; font-size: 0.85rem; margin-bottom: 32px; }
   .card {
     background: #111118;
     border: 1px solid #222230;
@@ -62,14 +45,7 @@ HTML = '''<!DOCTYPE html>
     padding: 28px;
     margin-bottom: 20px;
   }
-
-  label {
-    display: block;
-    font-size: 0.85rem;
-    color: #888;
-    margin-bottom: 8px;
-  }
-
+  label { display: block; font-size: 0.85rem; color: #888; margin-bottom: 8px; }
   input[type="text"] {
     width: 100%;
     background: #0a0a0f;
@@ -83,19 +59,8 @@ HTML = '''<!DOCTYPE html>
     margin-bottom: 20px;
     transition: border-color 0.2s;
   }
-
-  input[type="text"]:focus {
-    outline: none;
-    border-color: #a78bfa;
-  }
-
-  .options {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-
+  input[type="text"]:focus { outline: none; border-color: #a78bfa; }
+  .options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
   .option-btn {
     background: #0a0a0f;
     border: 2px solid #2a2a3a;
@@ -108,21 +73,11 @@ HTML = '''<!DOCTYPE html>
     font-family: 'Vazirmatn', sans-serif;
     font-size: 0.85rem;
   }
-
   .option-btn:hover { border-color: #a78bfa; color: #a78bfa; }
   .option-btn.active { border-color: #a78bfa; background: #1a1030; color: #a78bfa; }
-
   .option-btn .icon { font-size: 1.5rem; display: block; margin-bottom: 6px; }
-
   .quality-section { margin-bottom: 20px; }
-  .quality-section label { margin-bottom: 10px; }
-
-  .quality-options {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
+  .quality-options { display: flex; gap: 8px; flex-wrap: wrap; }
   .quality-btn {
     background: #0a0a0f;
     border: 2px solid #2a2a3a;
@@ -134,10 +89,8 @@ HTML = '''<!DOCTYPE html>
     font-size: 0.8rem;
     transition: all 0.2s;
   }
-
   .quality-btn:hover { border-color: #60a5fa; color: #60a5fa; }
   .quality-btn.active { border-color: #60a5fa; background: #0a1a30; color: #60a5fa; }
-
   .download-btn {
     width: 100%;
     background: linear-gradient(135deg, #7c3aed, #2563eb);
@@ -151,10 +104,8 @@ HTML = '''<!DOCTYPE html>
     cursor: pointer;
     transition: opacity 0.2s;
   }
-
   .download-btn:hover { opacity: 0.9; }
   .download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
   .progress-card {
     display: none;
     background: #111118;
@@ -163,25 +114,9 @@ HTML = '''<!DOCTYPE html>
     padding: 24px;
     margin-bottom: 20px;
   }
-
-  .progress-bar-bg {
-    background: #1a1a2a;
-    border-radius: 100px;
-    height: 8px;
-    margin: 12px 0;
-    overflow: hidden;
-  }
-
-  .progress-bar {
-    height: 100%;
-    background: linear-gradient(135deg, #7c3aed, #2563eb);
-    border-radius: 100px;
-    width: 0%;
-    transition: width 0.3s;
-  }
-
+  .progress-bar-bg { background: #1a1a2a; border-radius: 100px; height: 8px; margin: 12px 0; overflow: hidden; }
+  .progress-bar { height: 100%; background: linear-gradient(135deg, #7c3aed, #2563eb); border-radius: 100px; width: 0%; transition: width 0.3s; }
   .progress-text { font-size: 0.85rem; color: #888; text-align: center; }
-
   .result-card {
     display: none;
     background: #111118;
@@ -190,15 +125,8 @@ HTML = '''<!DOCTYPE html>
     padding: 24px;
     text-align: center;
   }
-
   .result-title { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: #4ade80; }
-
-  .action-btns {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
+  .action-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .action-btn {
     padding: 12px;
     border-radius: 10px;
@@ -209,18 +137,10 @@ HTML = '''<!DOCTYPE html>
     font-weight: 600;
     transition: opacity 0.2s;
   }
-
   .btn-download { background: #4ade80; color: #0a0a0f; }
   .btn-share { background: #25d366; color: white; }
   .action-btn:hover { opacity: 0.9; }
-
-  .supported {
-    text-align: center;
-    color: #444;
-    font-size: 0.75rem;
-    margin-top: 16px;
-  }
-
+  .supported { text-align: center; color: #444; font-size: 0.75rem; margin-top: 16px; }
   .error-msg { color: #f87171; font-size: 0.85rem; margin-top: 8px; text-align: center; display: none; }
 </style>
 </head>
@@ -228,46 +148,35 @@ HTML = '''<!DOCTYPE html>
 <div class="container">
   <h1>🎬 دانلودر</h1>
   <p class="subtitle">یوتیوب • اینستاگرام • تیک‌تاک • توییتر و بیشتر</p>
-
   <div class="card">
     <label>لینک ویدیو یا آهنگ را وارد کنید</label>
     <input type="text" id="url" placeholder="https://youtube.com/watch?v=...">
-
     <label>نوع فایل</label>
     <div class="options">
       <button class="option-btn active" onclick="setType('video')" id="btn-video">
-        <span class="icon">🎬</span>
-        ویدیو (MP4)
+        <span class="icon">🎬</span>ویدیو (MP4)
       </button>
       <button class="option-btn" onclick="setType('audio')" id="btn-audio">
-        <span class="icon">🎵</span>
-        فقط صدا (MP3)
+        <span class="icon">🎵</span>فقط صدا (MP3)
       </button>
     </div>
-
     <div class="quality-section" id="quality-section">
       <label>کیفیت</label>
       <div class="quality-options">
-        <button class="quality-btn" onclick="setQuality('2160')" id="q-2160">4K</button>
         <button class="quality-btn" onclick="setQuality('1080')" id="q-1080">1080p</button>
         <button class="quality-btn active" onclick="setQuality('720')" id="q-720">720p</button>
         <button class="quality-btn" onclick="setQuality('480')" id="q-480">480p</button>
         <button class="quality-btn" onclick="setQuality('360')" id="q-360">360p</button>
       </div>
     </div>
-
     <button class="download-btn" onclick="startDownload()" id="dl-btn">⬇️ دانلود</button>
     <p class="error-msg" id="error-msg"></p>
   </div>
-
   <div class="progress-card" id="progress-card">
     <p style="text-align:center; margin-bottom:8px;">در حال دانلود...</p>
-    <div class="progress-bar-bg">
-      <div class="progress-bar" id="progress-bar"></div>
-    </div>
+    <div class="progress-bar-bg"><div class="progress-bar" id="progress-bar"></div></div>
     <p class="progress-text" id="progress-text">لطفاً صبر کنید...</p>
   </div>
-
   <div class="result-card" id="result-card">
     <p class="result-title">✅ دانلود آماده شد!</p>
     <div class="action-btns">
@@ -275,15 +184,12 @@ HTML = '''<!DOCTYPE html>
       <button class="action-btn btn-share" onclick="shareWhatsApp()">📲 ارسال واتساپ</button>
     </div>
   </div>
-
   <p class="supported">پشتیبانی از: YouTube • Instagram • TikTok • Twitter/X • Facebook و ۱۰۰۰+ سایت دیگر</p>
 </div>
-
 <script>
 let selectedType = 'video';
 let selectedQuality = '720';
 let downloadId = null;
-let downloadUrl = null;
 
 function setType(type) {
   selectedType = type;
@@ -301,14 +207,12 @@ function setQuality(q) {
 async function startDownload() {
   const url = document.getElementById('url').value.trim();
   if (!url) { showError('لطفاً لینک را وارد کنید'); return; }
-
   document.getElementById('dl-btn').disabled = true;
   document.getElementById('error-msg').style.display = 'none';
   document.getElementById('progress-card').style.display = 'block';
   document.getElementById('result-card').style.display = 'none';
   document.getElementById('progress-bar').style.width = '10%';
   document.getElementById('progress-text').textContent = 'در حال شروع...';
-
   try {
     const res = await fetch('/download', {
       method: 'POST',
@@ -319,43 +223,31 @@ async function startDownload() {
     if (data.error) { showError(data.error); return; }
     downloadId = data.id;
     checkProgress();
-  } catch(e) {
-    showError('خطا در اتصال به سرور');
-  }
+  } catch(e) { showError('خطا در اتصال به سرور'); }
 }
 
 function checkProgress() {
   const interval = setInterval(async () => {
     const res = await fetch('/progress/' + downloadId);
     const data = await res.json();
-    
     if (data.progress) {
       document.getElementById('progress-bar').style.width = data.progress + '%';
       document.getElementById('progress-text').textContent = data.status || 'در حال دانلود...';
     }
-
     if (data.done) {
       clearInterval(interval);
       document.getElementById('progress-bar').style.width = '100%';
-      document.getElementById('progress-text').textContent = 'تمام شد!';
       setTimeout(() => {
         document.getElementById('progress-card').style.display = 'none';
         document.getElementById('result-card').style.display = 'block';
-        downloadUrl = '/file/' + downloadId;
         document.getElementById('dl-btn').disabled = false;
       }, 500);
     }
-
-    if (data.error) {
-      clearInterval(interval);
-      showError(data.error);
-    }
-  }, 1500);
+    if (data.error) { clearInterval(interval); showError(data.error); }
+  }, 2000);
 }
 
-function saveFile() {
-  if (downloadUrl) window.location.href = downloadUrl;
-}
+function saveFile() { window.location.href = '/file/' + downloadId; }
 
 function shareWhatsApp() {
   const fileUrl = window.location.origin + '/file/' + downloadId;
@@ -382,17 +274,13 @@ def download():
     url = data.get('url')
     dl_type = data.get('type', 'video')
     quality = data.get('quality', '720')
-    
     if not url:
         return jsonify({'error': 'لینک وارد نشده'})
-    
     dl_id = str(uuid.uuid4())
     downloads[dl_id] = {'progress': 0, 'done': False, 'error': None, 'file': None, 'status': 'شروع...'}
-    
     thread = threading.Thread(target=do_download, args=(dl_id, url, dl_type, quality))
     thread.daemon = True
     thread.start()
-    
     return jsonify({'id': dl_id})
 
 def do_download(dl_id, url, dl_type, quality):
@@ -400,27 +288,38 @@ def do_download(dl_id, url, dl_type, quality):
         tmp_dir = tempfile.mkdtemp()
         downloads[dl_id]['progress'] = 20
         downloads[dl_id]['status'] = 'در حال دریافت اطلاعات...'
-        
+
+        base_cmd = ['yt-dlp',
+                    '--no-check-certificate',
+                    '--extractor-retries', '3',
+                    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36']
+
         if dl_type == 'audio':
-            cmd = ['yt-dlp', '-x', '--audio-format', 'mp3', '--audio-quality', '0',
-                   '-o', os.path.join(tmp_dir, '%(title)s.%(ext)s'), url]
+            cmd = base_cmd + ['-x', '--audio-format', 'mp3', '--audio-quality', '0',
+                              '-o', os.path.join(tmp_dir, '%(title)s.%(ext)s'), url]
         else:
-            fmt = f'bestvideo[height<={quality}]+bestaudio/best[height<={quality}]/best'
-            cmd = ['yt-dlp', '-f', fmt, '--merge-output-format', 'mp4',
-                   '-o', os.path.join(tmp_dir, '%(title)s.%(ext)s'), url]
-        
+            fmt = f'bestvideo[height<={quality}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={quality}]+bestaudio/best[height<={quality}]/best'
+            cmd = base_cmd + ['-f', fmt, '--merge-output-format', 'mp4',
+                              '-o', os.path.join(tmp_dir, '%(title)s.%(ext)s'), url]
+
         downloads[dl_id]['progress'] = 40
         downloads[dl_id]['status'] = 'در حال دانلود...'
-        
+
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-        
+
         if result.returncode != 0:
-            downloads[dl_id]['error'] = 'خطا در دانلود: ' + result.stderr[-200:]
+            # Try with different format as fallback
+            if dl_type == 'video':
+                cmd2 = base_cmd + ['-f', 'best', '-o', os.path.join(tmp_dir, '%(title)s.%(ext)s'), url]
+                result = subprocess.run(cmd2, capture_output=True, text=True, timeout=300)
+
+        if result.returncode != 0:
+            downloads[dl_id]['error'] = 'خطا در دانلود. لطفاً لینک دیگری امتحان کنید.'
             return
-        
+
         downloads[dl_id]['progress'] = 90
         downloads[dl_id]['status'] = 'در حال آماده‌سازی...'
-        
+
         files = os.listdir(tmp_dir)
         if files:
             downloads[dl_id]['file'] = os.path.join(tmp_dir, files[0])
